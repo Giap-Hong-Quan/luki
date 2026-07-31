@@ -1,31 +1,67 @@
 import User from "../models/User.js";
-import { sendOtpService, signinService, signupService, verifyOtpService } from "../services/authService.js"
+import { sendOtpService, signinService, verifyOtpService } from "../services/authService.js"
 import admin from "firebase-admin"
 import { accessToken } from "../utils/jwt.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import Role from "../models/Role.js";
+import ApiError from "../exceptions/ApiError.js";
+import { success } from "../utils/success.js";
+import { hashPassword } from "../utils/password.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const serviceAccountPath = path.join(__dirname, "../../serviceAccountKey.json");
 const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath));
 // đăng ký
-export const signupController = async (req,res)=>{
+export const signupController = async (req, res, next) => {
     try {
-        const result= await signupService(req.body);
-    return res.status(201).json({message:"đăng ký thành công",user:result})
+        const { full_name, email, password } = req.body;
+        const existedUser = await User.findOne({ email: email });
+        if (existedUser) {
+            throw new ApiError(409, "Email đã tồn tại!");
+        }
+        const userRole = await Role.findOne({ name: "user" }).select("name _id");
+        if (!userRole) {
+            throw new ApiError(404, "Role 'user' không tồn tại");
+        }
+        const hashedPassword = await hashPassword(password);
+        const signup = await User.create({
+            full_name: full_name,
+            email: email,
+            password: hashedPassword,
+            role: userRole._id,
+        });
+
+        return success(res, signup, "Đăng ký thành công", 201);
     } catch (error) {
-        return res.status(400).json({message:error.message || " Lỗi hệ thống"});
+        next(error);
     }
-}
+};
 // dăng nhập
-export const signinController=async (req,res)=>{
+export const signinController=async (req,res,next)=>{
     try {
-        const result =await signinService(req.body);
-        return res.status(201).json({message:"Đăng nhập thành công",token:result})
+        const { email, password } = req.body;
+        const exitUser = await User.findOne({ email: email }).select("+password").populate("role");
+        if (!exitUser) {
+            throw new ApiError(400, "Email không chính xác");
+        }
+        if (exitUser.isOTPEmail === false) { throw new ApiError(400, "Tài khoản chưa đc xác minh otp") };
+        const isMatch = await comparePassword(password, exitUser.password)
+        if (!isMatch) {
+            throw new ApiError(400, "Email hoặc mật khẩu không chính xác");
+        }
+        const token = accessToken(
+            {
+                id: exitUser._id,
+                date: new Date(),
+                role: exitUser.role.name
+            }
+        )
+        await User.findByIdAndUpdate(exitUser._id,{isActive:true,lastLogin:new Date(),provider:'local',provider_id:null})
+       return success(res,token,"Đăng nhập thành công",201)
     } catch (error) {
-        return res.status(400).json({message:error.message||"Lỗi hệ thống"})
+        next(error);
     }
 }
 // gửi otp

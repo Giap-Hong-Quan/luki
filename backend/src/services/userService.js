@@ -41,7 +41,7 @@ export const getAllUserService =async(page=1,sizePage=10,filter={})=>{
   const [allUser,count] = await Promise.all([
                           User.find(query)
                           .sort({createdAt:-1})
-                          .select("-password -branch")
+                          .select("-password")
                           .populate("role","name")
                           .skip(skipPage)
                           .limit(limit)

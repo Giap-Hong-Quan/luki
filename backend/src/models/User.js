@@ -92,7 +92,6 @@ const User= new mongoose.Schema(
             ],
             default: "newbie",
         },
-        branch: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", default: null },
     },
     {timestamps:true,versionKey:false}
 )

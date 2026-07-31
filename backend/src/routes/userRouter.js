@@ -1,9 +1,10 @@
 import express from "express";
 import { createUserController, deleteUserByIdController, getAllUserController } from "../controllers/userController.js";
-import { verifyToken, verifyTokenAdmin } from "../middlewares/authMiddleware.js";
+import { verifyToken, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const userRouter = express.Router();
-userRouter.get("/",verifyTokenAdmin,getAllUserController)
-userRouter.delete("/:id",verifyTokenAdmin,deleteUserByIdController)
-userRouter.post("",verifyTokenAdmin,createUserController)
-export default userRouter
+userRouter.get("/", verifyToken, authorizeRoles("admin"), getAllUserController);
+userRouter.delete("/:id", verifyToken, authorizeRoles("admin"), deleteUserByIdController);
+userRouter.post("/", verifyToken, authorizeRoles("admin"), createUserController);
+
+export default userRouter;

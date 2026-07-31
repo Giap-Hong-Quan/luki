@@ -4,37 +4,7 @@ import { comparePassword, hashPassword } from "../utils/password.js";
 import { accessToken } from "../utils/jwt.js";
 import Verification from "../models/Verification.js";
 import { sendEmail } from "./senEmail.js";
-// Đăng ký
-export const signupService =async (payload)=>{
-    try{ 
-        const{full_name,email,password}=payload;
-        if(!full_name || !email|| !password){
-            throw new Error("Vui lòng nhập đầy đủ thông tin");
-        }
-        const existedUser  = await User.findOne({email:email});
-        if(existedUser ){
-            throw new Error("Email đã tồn tại!");
-        }
-        const userRole= await Role.findOne({name:"user"});
-        if(!userRole){throw new Error("Role không tồn tại")};
-        const hashedPassword = await hashPassword(password);
-        const signup =await User.create(
-            {
-               full_name:full_name,
-               email:email,
-               password:hashedPassword,
-               role: userRole._id,
-            }
-        )
-        if(!signup){
-            throw new Error("Đăng ký thất bại");
-        }
-        return signup;
-    }catch(error){
-        console.error("signup error:", error)
-        throw error;
-    }
-}
+
 // đăng nhập 
 export const signinService =async (payload)=>{
     try {
