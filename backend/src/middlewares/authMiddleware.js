@@ -11,24 +11,19 @@ export const verifyToken = async (req, res, next) => {
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
             return res.status(401).json({ message: "Vui lòng đăng nhập để thực hiện chức năng này" });
         }
-
         const token = authHeader.split(" ")[1];
         const decoded = verifyAccessToken(token);
-
         // Lấy thông tin user từ DB & Populate role
         const user = await User.findById(decoded.id)
             .select("-password")
             .populate("role", "name");
-
         if (!user) {
             return res.status(401).json({ message: "Tài khoản không tồn tại" });
         }
-
         // Kiểm tra tài khoản có bị khóa hoặc đã bị xóa hay không
         if (user.isActive === false || (user.deletedAt && user.deletedAt !== null)) {
             return res.status(401).json({ message: "Tài khoản của bạn đã bị khóa hoặc không còn hoạt động" });
         }
-
         // Gán thông tin user vào request
         req.user = user;
         next();

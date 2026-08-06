@@ -42,6 +42,10 @@ const User= new mongoose.Schema(
         },
         isActive:{
             type:Boolean,
+            default:true
+        },
+        isOnline:{
+            type:Boolean,
             default:false
         },
         role:{
@@ -57,9 +61,9 @@ const User= new mongoose.Schema(
             default:null
         },
         createdBy: {
-            type: String,
-            enum: ["user","admin"],
-            default: "user",
+            type: mongoose.Schema.Types.ObjectId,
+            ref:"User",
+            default:null
         },
         addresses:[
             {

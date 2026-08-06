@@ -1,18 +1,16 @@
 import User from "../models/User.js";
-import { sendOtpService, signinService, verifyOtpService } from "../services/authService.js"
-import admin from "firebase-admin"
-import { accessToken } from "../utils/jwt.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import Verification from "../models/Verification.js";
+import { 
+    sendOtpService, 
+    verifyOtpService,
+    forgotPasswordService
+} from "../services/authService.js";
+import { accessToken, refreshToken, verifyRefreshToken } from "../utils/jwt.js";
 import Role from "../models/Role.js";
 import ApiError from "../exceptions/ApiError.js";
 import { success } from "../utils/success.js";
-import { hashPassword } from "../utils/password.js";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const serviceAccountPath = path.join(__dirname, "../../serviceAccountKey.json");
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath));
+import { comparePassword, hashPassword } from "../utils/password.js";
+
 // đăng ký
 export const signupController = async (req, res, next) => {
     try {
@@ -31,124 +29,226 @@ export const signupController = async (req, res, next) => {
             email: email,
             password: hashedPassword,
             role: userRole._id,
+            isOTPEmail: false
         });
-
-        return success(res, signup, "Đăng ký thành công", 201);
+      try {
+            await sendOtpService(email.toLowerCase().trim());
+        } catch (otpError) {
+            await User.findByIdAndDelete(signup._id); // Rollback xóa user
+            throw new ApiError(500, otpError.message || "Gửi email OTP thất bại, vui lòng thử lại!");
+        }
+        return success(res, signup, "Đăng ký thành công.Vui lòng kiểm tra email để nhận mã OTP!", 201);
     } catch (error) {
         next(error);
     }
 };
-// dăng nhập
-export const signinController=async (req,res,next)=>{
+// đăng nhập
+export const signinController = async (req, res, next) => {
     try {
         const { email, password } = req.body;
         const exitUser = await User.findOne({ email: email }).select("+password").populate("role");
         if (!exitUser) {
             throw new ApiError(400, "Email không chính xác");
         }
-        if (exitUser.isOTPEmail === false) { throw new ApiError(400, "Tài khoản chưa đc xác minh otp") };
-        const isMatch = await comparePassword(password, exitUser.password)
+        if (exitUser.isActive === false) { 
+            throw new ApiError(403, "Tài khoản của bạn đã bị khóa hoặc bị vô hiệu hóa");
+        }
+        if (exitUser.isOTPEmail === false) { 
+            throw new ApiError(400, "Tài khoản chưa được xác minh OTP");
+        }
+        const isMatch = await comparePassword(password, exitUser.password);
         if (!isMatch) {
             throw new ApiError(400, "Email hoặc mật khẩu không chính xác");
         }
-        const token = accessToken(
+        const newAccessToken = accessToken(
             {
                 id: exitUser._id,
                 date: new Date(),
                 role: exitUser.role.name
             }
-        )
-        await User.findByIdAndUpdate(exitUser._id,{isActive:true,lastLogin:new Date(),provider:'local',provider_id:null})
-       return success(res,token,"Đăng nhập thành công",201)
+        );
+        const newRefreshToken = refreshToken({
+            id: exitUser._id,
+            date: new Date(),
+            role: exitUser.role.name
+        });
+        // Lưu Refresh Token vào HTTP-only Cookie
+        res.cookie("refreshToken", newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 ngày
+        });
+
+        await User.findByIdAndUpdate(exitUser._id, { isOnline: true, lastLogin: new Date(), provider: 'local', provider_id: null });
+        return success(res, { accessToken: newAccessToken }, "Đăng nhập thành công", 200);
     } catch (error) {
         next(error);
     }
-}
+};
+
+// refresh token
+export const refreshTokenController = async (req, res, next) => {
+    try {
+        const tokenFromCookie = req.cookies?.refreshToken;
+        const tokenFromBody = req.body?.refreshToken;
+        const token = tokenFromCookie || tokenFromBody;
+        if (!token) {
+            throw new ApiError(401, "Không tìm thấy Refresh Token");
+        }
+        let decoded;
+        try {
+            decoded = verifyRefreshToken(token);
+        } catch (err) {
+            throw new ApiError(403, "Refresh Token không hợp lệ hoặc đã hết hạn");
+        }
+        const user = await User.findById(decoded.id).populate("role");
+        if (!user) {
+            throw new ApiError(404, "Người dùng không tồn tại");
+        }
+        if (user.isActive === false) {
+            throw new ApiError(403, "Tài khoản của bạn đã bị khóa hoặc bị vô hiệu hóa");
+        }
+        const newAccessToken = accessToken({
+            id: user._id,
+            date: new Date(),
+            role: user.role.name
+        });
+
+        return success(res, { accessToken: newAccessToken }, "Làm mới token thành công", 200);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// đăng xuất
+export const logoutController = async (req, res, next) => {
+    try {
+        const userId = req.user?._id;
+        if (userId) {
+            await User.findByIdAndUpdate(userId, { isOnline: false });
+        } else if (req.cookies?.refreshToken) {
+            try {
+                const decoded = verifyRefreshToken(req.cookies.refreshToken);
+                if (decoded?.id) {
+                    await User.findByIdAndUpdate(decoded.id, { isOnline: false });
+                }
+            } catch (err) {
+                // Giảm thiểu lỗi khi logout
+            }
+        }
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict"
+        });
+        return success(res, null, "Đăng xuất thành công", 200);
+    } catch (error) {
+        next(error);
+    }
+};
 // gửi otp
-export const sendOtpController =async (req,res)=>{
+export const sendOtpController =async (req,res,next)=>{
     try {
         const {email}=req.body;
         if(!email){
             return res.status(400).json({ message: "Thiếu email" });
         }
         const result =await sendOtpService(email);
-        return res.status(201).json(result);
+        return success(res,result, "Gửi OTP thành công",201);
     } catch (error) {
-        return res.status(400).json({message:error.message||"Lỗi hệ thống"})
+        next(error);
     }
 }
 // verifyOtp
-export const verifyOtpController =async (req,res)=>{
+export const verifyOtpController =async (req,res,next)=>{
     try {
         const { email, otp } = req.body;
-        const result =await verifyOtpService( email, otp )
-        return res.status(201).json(result)
+        const result =await verifyOtpService( email, otp );
+        return success(res,result, "Xác thực OTP thành công",201)
     } catch (error) {
-        return res.status(400).json({message:error.message||"Lỗi hệ thống"})
+        next(error);
     }
 }
 
-// login gg 
-//login gg 
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
-}
-export const loginGoogleController =async (req,res)=>{
-    try {
-        const token = req.headers.authorization?.split(" ")[1];
-        if(!token){return res.status(400).json({message:"token không tồn tại"})}
-        const decoded = await admin.auth().verifyIdToken(token)
-        const {email,name,picture,uid}=decoded;
-        // Kiểm tra user trong database của bạn
-        let exitUser = await User.findOne({ email }).populate("role");
-        const roleId= await Role.findOne({name:"user"})
-        if(!exitUser){
-            await User.create(
-                {
-                    full_name:name,
-                    email,
-                    avatar:picture,
-                    provider:"google",
-                    provider_id:uid,
-                    isOTPEmail:true,
-                    isActive:true,
-                    lastLogin :new Date(),
-                    role:roleId
-                }
-            )
-        }else{
-            const update ={
-                isActive: true,
-                lastLogin: new Date(),
-                isOTPEmail:true,
-            }
-            if(!exitUser.provider_id){
-                update.provider="google",
-                update.provider_id=uid
-            }
-            await User.findByIdAndUpdate(exitUser._id,update)
-        }
-        exitUser = await User.findOne({ email }).populate("role");
-        const tokens = accessToken(
-            {
-                id:exitUser._id,
-                date :new Date(),
-                role:exitUser.role.name
-            }
-        ) 
-        return res.status(201).json({message:"Login thành công",data:{token:tokens}})
-    } catch (error) {
-        return res.status(400).json({message:error.message||"Lỗi hệ thống"})
-    }
-}
-//get profile\
-//get by id
-export const getProfileController =async(req,res)=>{
+//get profile
+export const getProfileController = async (req, res) => {
     try {
         return res.status(200).json({message:"Get user thành công",profile:req.user})
     } catch (error) {
         return res.status(400).json({message:error.message||"Lỗi hệ thống !"})
     }
 }
+
+// 8. Gửi OTP khôi phục mật khẩu (Forgot Password)
+export const forgotPasswordController = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        const result = await forgotPasswordService(email);
+        return success(res, result, "Gửi mã OTP khôi phục mật khẩu thành công", 200);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// 9. Đặt lại mật khẩu mới bằng OTP (Reset Password)
+export const resetPasswordController = async (req, res, next) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        const existUser = await User.findOne({ email: email.toLowerCase().trim() });
+        if (!existUser) {
+            throw new ApiError(404, "Email không tồn tại trong hệ thống");
+        }
+
+        const verification = await Verification.findOne({
+            email: email.toLowerCase().trim(),
+            code: otp,
+            type: "forgot_password",
+            used: false,
+        });
+
+        if (!verification) {
+            throw new ApiError(400, "Mã OTP không đúng hoặc không tồn tại");
+        }
+
+        if (verification.expiresAt < new Date()) {
+            throw new ApiError(400, "Mã OTP đã hết hạn");
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+        await User.findByIdAndUpdate(existUser._id, { password: hashedPassword });
+
+        verification.used = true;
+        await verification.save();
+
+        return success(res, null, "Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại", 200);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// 10. Đổi mật khẩu cho User đang đăng nhập (Change Password)
+export const changePasswordController = async (req, res, next) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        const userId = req.user._id;
+
+        const user = await User.findById(userId).select("+password");
+        if (!user) {
+            throw new ApiError(404, "Người dùng không tồn tại");
+        }
+
+        const isMatch = comparePassword(oldPassword, user.password);
+        if (!isMatch) {
+            throw new ApiError(400, "Mật khẩu cũ không chính xác");
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+        user.password = hashedPassword;
+        await user.save();
+
+        return success(res, null, "Đổi mật khẩu thành công", 200);
+    } catch (error) {
+        next(error);
+    }
+};
