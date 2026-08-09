@@ -86,3 +86,21 @@ export const userIdParamZod = z.object({
         id: z.string().min(1, "ID người dùng là bắt buộc")
     })
 });
+
+// Helper ép kiểu boolean cho Query URL ("true"/"false" -> boolean)
+const parseBooleanQuery = z.enum(["true", "false"]).transform((val) => val === "true").optional();
+
+// Schema Validate Query Lấy Danh Sách Người Dùng (Admin)
+export const getUsersQueryZod = z.object({
+    query: z.object({
+        page: z.coerce.number().int().min(1, "Trang phải lớn hơn 0").default(1),
+        sizePage: z.coerce.number().int().min(0, "Số lượng người dùng mỗi trang không được nhỏ hơn 0").max(100, "Số lượng tối đa 100").default(10),
+        search: z.string().trim().optional(),
+        tier: z.string().trim().optional(),
+        fromDate: z.string().trim().optional(),
+        toDate: z.string().trim().optional(),
+        isActive: parseBooleanQuery,
+        isOnline: parseBooleanQuery,
+        isDeleted: parseBooleanQuery
+    })
+});

@@ -44,3 +44,17 @@ export const categoryIdParamZod = z.object({
         id: z.string().min(1, "ID danh mục là bắt buộc")
     })
 });
+
+// Helper ép kiểu boolean cho Query URL ("true"/"false" -> boolean)
+const parseBooleanQuery = z.enum(["true", "false"]).transform((val) => val === "true").optional();
+
+export const getCategoriesQueryZod = z.object({
+    query: z.object({
+        page: z.coerce.number().int().min(1, "Trang phải lớn hơn 0").default(1),
+        sizePage: z.coerce.number().int().min(0, "Số lượng danh mục mỗi trang không được nhỏ hơn 0").max(100, "Số lượng tối đa 100").default(10),
+        search: z.string().trim().optional(),
+        parent: z.string().trim().optional(),
+        isActive: parseBooleanQuery,
+        isDeleted: parseBooleanQuery
+    })
+});

@@ -231,24 +231,22 @@ export const restoreCategoryController = async (req, res, next) => {
     }
 };
 
-// 9. Lấy danh sách danh mục (Phân trang + Tìm kiếm + Lọc mở rộng: isAll, isDeleted, isActive, parent)
+// Lấy danh sách danh mục (Phân trang + Tìm kiếm + Lọc mở rộng: isDeleted, isActive, parent)
 export const getAllCategoryController = async (req, res, next) => {
     try {
-        const { page = 1, sizePage = 10, search, isAll, isDeleted, isActive, parent } = req.query;
+        const { page = 1, sizePage = 10, search, isDeleted, isActive, parent } = req.query;
 
         const query = {};
 
         // 1. Lọc theo trạng thái xóa mềm (Đã xóa vs Chưa xóa)
-        if (isDeleted === "true" || isDeleted === true) {
+        if (isDeleted === true) {
             query.deletedAt = { $ne: null };
         } else {
             query.deletedAt = null;
         }
         // 2. Lọc theo trạng thái hoạt động (isActive)
-        if (isActive === "true" || isActive === true) {
-            query.isActive = true;
-        } else if (isActive === "false" || isActive === false) {
-            query.isActive = false;
+        if (typeof isActive === "boolean") {
+            query.isActive = isActive;
         }
         // 3. Lọc theo danh mục cha (parent)
         if (parent === "null" || parent === "root") {
@@ -257,7 +255,7 @@ export const getAllCategoryController = async (req, res, next) => {
             query.parent = new mongoose.Types.ObjectId(parent);
         }
         // 4. Lọc tìm kiếm theo tên có dấu và không dấu
-        if (search && typeof search === "string" && search.trim() !== "") {
+        if (search && search.trim() !== "") {
             const searchTrim = search.trim();
             const cleanSearch = removeVietnameseTones(searchTrim);
             query.$or = [
@@ -265,25 +263,9 @@ export const getAllCategoryController = async (req, res, next) => {
                 { noAccentName: { $regex: cleanSearch, $options: "i" } }
             ];
         }
-        // Trường hợp lấy toàn bộ (không phân trang - ví dụ Client render Menu Header/Sidebar)
-        const fetchAll = isAll === "true" || isAll === true;
-        if (fetchAll) {
-            const categories = await Category.find(query)
-                .sort({ order: 1, createdAt: -1 })
-                .collation({ locale: "vi", strength: 1 })
-                .lean();
-
-            return success(
-                res,
-                { categories, totalCategory: categories.length },
-                "Lấy toàn bộ danh sách danh mục thành công",
-                200
-            );
-        }
-        // Trường hợp có phân trang (cho trang quản trị Admin)
-        const currentPage = Math.max(1, parseInt(page) || 1);
-        const limit = Math.max(1, parseInt(sizePage) || 10);
-        const skip = (currentPage - 1) * limit;
+        // Phân trang (Nếu sizePage = 0, Mongoose .limit(0) sẽ tự động lấy toàn bộ)
+        const limit = sizePage;
+        const skip = limit > 0 ? (page - 1) * limit : 0;
         const [categories, count] = await Promise.all([
             Category.find(query)
                 .sort({ order: 1, createdAt: -1 })
@@ -296,8 +278,8 @@ export const getAllCategoryController = async (req, res, next) => {
         const result = {
             categories,
             totalCategory: count,
-            totalPage: Math.ceil(count / limit),
-            currentPage,
+            totalPage: limit > 0 ? Math.ceil(count / limit) : 1,
+            currentPage: page,
             sizePage: limit
         };
         success(res, result, "Lấy danh sách danh mục thành công", 200);

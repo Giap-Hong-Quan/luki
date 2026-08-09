@@ -207,25 +207,25 @@ export const forceDeleteUserController = async (req, res, next) => {
     }
 };
 
-// 8. Lấy danh sách người dùng (Phân trang + Tìm kiếm + Lọc mở rộng: status, tier, fromDate, toDate, isDeleted, isAll)
+// Lấy danh sách người dùng (Phân trang + Tìm kiếm + Lọc mở rộng: isActive, isOnline, tier, fromDate, toDate, isDeleted)
 export const getAllUserController = async (req, res, next) => {
     try {
         const {
             page = 1,
             sizePage = 10,
             search,
-            status,
+            isActive,
+            isOnline,
             tier,
             fromDate,
             toDate,
-            isDeleted,
-            isAll
+            isDeleted
         } = req.query;
 
         const query = {};
 
         // 1. Lọc theo danh sách bị xóa (deletedAt)
-        if (isDeleted === "true" || isDeleted === true) {
+        if (isDeleted === true) {
             query.deletedAt = { $ne: null };
         } else {
             query.deletedAt = null;
@@ -238,7 +238,7 @@ export const getAllUserController = async (req, res, next) => {
         }
 
         // 3. Lọc theo từ khóa tìm kiếm (Tên, Email, Số điện thoại)
-        if (search && typeof search === "string" && search.trim() !== "") {
+        if (search && search.trim() !== "") {
             const searchTrim = search.trim();
             query.$or = [
                 { full_name: { $regex: searchTrim, $options: "i" } },
@@ -247,22 +247,18 @@ export const getAllUserController = async (req, res, next) => {
             ];
         }
 
-        // 4. Lọc theo trạng thái hoạt động (active / inactive)
-        if (status === "active" || status === "true" || status === true) {
-            query.isActive = true;
-        } else if (status === "inactive" || status === "false" || status === false) {
-            query.isActive = false;
+        // 4. Lọc theo trạng thái hoạt động (isActive)
+        if (typeof isActive === "boolean") {
+            query.isActive = isActive;
         }
 
-        // 4.1 Lọc theo trạng thái online (true / false)
-        if (req.query.isOnline === "true" || req.query.isOnline === true) {
-            query.isOnline = true;
-        } else if (req.query.isOnline === "false" || req.query.isOnline === false) {
-            query.isOnline = false;
+        // 4.1 Lọc theo trạng thái online (isOnline)
+        if (typeof isOnline === "boolean") {
+            query.isOnline = isOnline;
         }
 
         // 5. Lọc theo hạng thành viên (membership_tier)
-        if (tier && typeof tier === "string" && tier.trim() !== "") {
+        if (tier && tier.trim() !== "") {
             query.membership_tier = tier.trim();
         }
 
@@ -273,28 +269,9 @@ export const getAllUserController = async (req, res, next) => {
             if (toDate) query.createdAt.$lte = new Date(toDate);
         }
 
-        // Lấy toàn bộ không phân trang
-        const fetchAll = isAll === "true" || isAll === true;
-
-        if (fetchAll) {
-            const users = await User.find(query)
-                .sort({ createdAt: -1 })
-                .select("-password")
-                .populate("role", "name")
-                .lean();
-
-            return success(
-                res,
-                { users, totalUser: users.length },
-                "Lấy toàn bộ danh sách người dùng thành công",
-                200
-            );
-        }
-
-        // Phân trang
-        const currentPage = Math.max(1, parseInt(page) || 1);
-        const limit = Math.max(1, parseInt(sizePage) || 10);
-        const skip = (currentPage - 1) * limit;
+        // Phân trang (Nếu sizePage = 0, Mongoose .limit(0) sẽ tự động lấy toàn bộ)
+        const limit = sizePage;
+        const skip = limit > 0 ? (page - 1) * limit : 0;
 
         const [users, count] = await Promise.all([
             User.find(query)
@@ -310,12 +287,12 @@ export const getAllUserController = async (req, res, next) => {
         const result = {
             users,
             totalUser: count,
-            totalPage: Math.ceil(count / limit),
-            currentPage,
+            totalPage: limit > 0 ? Math.ceil(count / limit) : 1,
+            currentPage: page,
             sizePage: limit
         };
 
-        success(res, result, "Lấy danh sách người dùng thành công", 200);
+        return success(res, result, "Lấy danh sách người dùng thành công", 200);
     } catch (error) {
         next(error);
     }

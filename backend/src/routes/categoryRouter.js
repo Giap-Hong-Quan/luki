@@ -12,7 +12,7 @@ import {
     forceDeleteCategoryController
 } from "../controllers/categoryController.js";
 import { validate } from "../middlewares/validate.js";
-import { createCategoryZod, updateCategoryZod } from "../validators/categoryZod.js";
+import { createCategoryZod, updateCategoryZod, getCategoriesQueryZod } from "../validators/categoryZod.js";
 import { verifyToken, authorizeRoles } from "../middlewares/authMiddleware.js";
 
 const categoryRouter = express.Router();
@@ -342,12 +342,6 @@ categoryRouter.put("/:id/restore", verifyToken, authorizeRoles("admin", "staff")
  *           type: string
  *         description: Từ khóa tìm kiếm theo tên (có dấu hoặc không dấu)
  *       - in: query
- *         name: isAll
- *         schema:
- *           type: boolean
- *           default: false
- *         description: Đặt true để lấy toàn bộ danh mục mà không phân trang (Client Menu)
- *       - in: query
  *         name: isDeleted
  *         schema:
  *           type: boolean
@@ -369,7 +363,7 @@ categoryRouter.put("/:id/restore", verifyToken, authorizeRoles("admin", "staff")
  *       500:
  *         description: Lỗi hệ thống
  */
-categoryRouter.get("/", getAllCategoryController);
+categoryRouter.get("/", validate(getCategoriesQueryZod), getAllCategoryController);
 
 /**
  * @swagger

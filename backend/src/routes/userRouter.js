@@ -11,7 +11,7 @@ import {
 } from "../controllers/userController.js";
 import { verifyToken, authorizeRoles } from "../middlewares/authMiddleware.js";
 import { validate } from "../middlewares/validate.js";
-import { createUserZod, updateUserZod } from "../validators/userZod.js";
+import { createUserZod, updateUserZod, getUsersQueryZod } from "../validators/userZod.js";
 
 const userRouter = express.Router();
 
@@ -268,18 +268,12 @@ userRouter.delete("/:id/force", verifyToken, authorizeRoles("admin"), forceDelet
  *           type: boolean
  *           default: false
  *         description: true để lấy danh sách Thùng rác
- *       - in: query
- *         name: isAll
- *         schema:
- *           type: boolean
- *           default: false
- *         description: true để lấy toàn bộ danh sách không phân trang
  *     responses:
  *       200:
  *         description: Lấy danh sách người dùng thành công
  *       500:
  *         description: Lỗi hệ thống
  */
-userRouter.get("/", verifyToken, authorizeRoles("admin"), getAllUserController);
+userRouter.get("/", validate(getUsersQueryZod), verifyToken, authorizeRoles("admin"), getAllUserController);
 
 export default userRouter;
