@@ -96,6 +96,11 @@ const ProductSchema = new mongoose.Schema(
             default: 0,
             min: 0
         },
+        weight: { // Trọng lượng sản phẩm (gram) - dùng để tính cước vận chuyển ViettelPost
+            type: Number,
+            default: 300, // mặc định 300g cho áo/quần, admin có thể sửa riêng từng sản phẩm sau
+            min: 0
+        },
         sold: { // Tổng số lượng sản phẩm đã bán
             type: Number,
             default: 0,
