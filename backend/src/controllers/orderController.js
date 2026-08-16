@@ -94,15 +94,15 @@ export const checkoutController = async (req, res, next) => {
          const shippingFee = await calculateFee(
             {
                 provinceId: shippingAddress.provinceId,
-                districtId: shippingAddress.districtId,
                 wardId: shippingAddress.wardId,
                 weight: totalWeight,
+                productPrice: itemsSubtotal,
                 codAmount
             }
          )
         // Lọc lấy phí ship tương ứng với gói cước khách chọn
-        const selectedOption = shippingFee.find(opt => opt.serviceCode === paymentMethod) || shippingFee[0];
-        const finalShippingFee = selectedOption?.fee;
+        const selectedOption = shippingFee?.find(opt => opt.serviceCode === (req.body.shippingService || "VTK")) || shippingFee?.[0];
+        const finalShippingFee = selectedOption?.fee || 50000;
 
         const finalAmount = itemsSubtotal + finalShippingFee;
 
@@ -120,7 +120,6 @@ export const checkoutController = async (req, res, next) => {
                         ward: shippingAddress.ward,
                         detailAddress: shippingAddress.detailAddress,
                         provinceId: shippingAddress.provinceId || null,
-                        districtId: shippingAddress.districtId || null,
                         wardId: shippingAddress.wardId || null,
                         note: shippingAddress.note || null
                     },

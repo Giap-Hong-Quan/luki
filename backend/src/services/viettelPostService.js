@@ -13,31 +13,42 @@ const SHIPPING_SERVICES = [
  * Gọi API tính cước 1 LẦN cho 1 mã dịch vụ cụ thể
  */
 const getPriceByService = async ({
-    receiverProvinceId,
-    receiverWardId,
+    provinceId,
+    wardId,
     weight,
     productPrice,
     codAmount,
     orderService
 }) => {
-    const res = await axios.post(
-        `${BASE_URL}/v2/order/getPrice`,
-        {
-            SENDER_PROVINCE: process.env.SENDER_PROVINCE,
-            SENDER_WARD: process.env.SENDER_WARD,
-            RECEIVER_PROVINCE: receiverProvinceId,
-            RECEIVER_WARD: receiverWardId,
-            PRODUCT_WEIGHT: weight,
-            PRODUCT_PRICE: productPrice,
-            MONEY_COLLECTION: codAmount,
-            PRODUCT_TYPE: "HH",
-            NATIONAL_TYPE: 1,
-            ORDER_SERVICE: orderService
-        },
-        { headers: { Token: TOKEN } }
-    );
+    try {
+        const baseUrl = process.env.VIETTELPOST_BASE_URL || "https://partnerdev.viettelpost.vn";
+        const token = process.env.VIETTELPOST_TOKEN;
 
-    return res.data?.data; // TODO: xác nhận field chứa giá cước sau khi test Postman
+        const res = await axios.post(
+            `${baseUrl}/v2/order/getPrice`,
+            {
+                SENDER_PROVINCE: Number(process.env.SENDER_PROVINCE || 44),
+                SENDER_WARD: Number(process.env.SENDER_WARD || 49186),
+                RECEIVER_PROVINCE: Number(provinceId),
+                RECEIVER_WARD: Number(wardId),
+                PRODUCT_WEIGHT: Number(weight || 300),
+                PRODUCT_PRICE: Number(productPrice || 0),
+                MONEY_COLLECTION: Number(codAmount || 0),
+                PRODUCT_TYPE: "HH",
+                NATIONAL_TYPE: 1,
+                ORDER_SERVICE: orderService
+            },
+            { headers: { Token: token } }
+        );
+
+        if (res.data?.status !== 200 || !res.data?.data) {
+            console.warn(`ViettelPost getPrice warning (${orderService}):`, res.data?.message || res.data);
+        }
+        return res.data?.data;
+    } catch (error) {
+        console.error(`ViettelPost getPrice error (${orderService}):`, error.response?.data || error.message);
+        return null;
+    }
 };
 
 /**
