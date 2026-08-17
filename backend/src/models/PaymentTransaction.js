@@ -25,7 +25,7 @@ const PaymentTransactionSchema = new mongoose.Schema(
         gateway: { // Cổng thanh toán dùng cho lần thử này
             type: String,
             required: true,
-            enum: ["SEPAY", "MOMO", "VNPAY", "ESCROW", "COD"]
+            enum: ["SEPAY", "MOMO", "VNPAY", "COD"]
         },
         transactionCode: { // Mã giao dịch. Với SePay/Momo/VNPay: mã do gateway cấp.
                             // Với COD: KHÔNG có mã thật từ gateway, tầng service phải tự sinh
