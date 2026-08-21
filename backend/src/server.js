@@ -37,7 +37,7 @@ app.use((req, res, next) => {
 connectDB();
 seedData();
 swaggerDocs(app);
-app.use('/v1/api',router);
+app.use('/api',router);
 app.use(errorHandle);
 const port = process.env.PORT || 8000;
 app.listen(port,()=>{

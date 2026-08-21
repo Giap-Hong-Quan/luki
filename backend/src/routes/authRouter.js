@@ -203,7 +203,7 @@ authRouter.post("/refresh-token", validate(refreshTokenSchema), refreshTokenCont
 authRouter.post("/logout", logoutController);
 /**
  * @swagger
- * /auth/sendOtp:
+ * /auth/send-otp:
  *   post:
  *     summary: Gửi mã OTP xác minh email
  *     tags: [Auth]
@@ -229,10 +229,11 @@ authRouter.post("/logout", logoutController);
  *       500:
  *         description: Lỗi hệ thống
  */
+authRouter.post("/send-otp", validate(sendOtpSchema), sendOtpController);
 authRouter.post("/sendOtp", validate(sendOtpSchema), sendOtpController);
 /**
  * @swagger
- * /auth/verifyOTp:
+ * /auth/verify-otp:
  *   post:
  *     summary: Xác minh mã OTP
  *     tags: [Auth]
@@ -262,7 +263,9 @@ authRouter.post("/sendOtp", validate(sendOtpSchema), sendOtpController);
  *       500:
  *         description: Lỗi hệ thống
  */
+authRouter.post("/verify-otp", validate(verifyOtpSchema), verifyOtpController);
 authRouter.post("/verifyOTp", validate(verifyOtpSchema), verifyOtpController);
+authRouter.post("/verifyOtp", validate(verifyOtpSchema), verifyOtpController);
 /**
  * @swagger
  * /auth/profile:

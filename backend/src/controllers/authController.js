@@ -58,7 +58,7 @@ export const signinController = async (req, res, next) => {
         }
         const isMatch = await comparePassword(password, exitUser.password);
         if (!isMatch) {
-            throw new ApiError(400, "Email hoặc mật khẩu không chính xác");
+            throw new ApiError(400, "Mật khẩu không chính xác");
         }
         const newAccessToken = accessToken(
             {

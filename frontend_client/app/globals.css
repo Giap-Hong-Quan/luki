@@ -1,26 +1,101 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Biến màu giao diện cho Light & Dark mode */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light mode */
+  --bg-page: #ffffff;             /* Màu nền toàn trang */
+  --bg-card: #ffffff;             /* Màu nền card, form */
+  --bg-subtle: #f8fafc;           /* Màu nền phụ, thanh bên */
+  --bg-input: #f8fafc;            /* Màu nền ô nhập liệu */
+
+  --text-primary: #09090b;        /* Màu chữ chính, tiêu đề */
+  --text-secondary: #52525b;      /* Màu chữ phụ, mô tả */
+  --text-muted: #a1a1aa;          /* Màu placeholder, chữ mờ */
+
+  --border-color: #e4e4e7;        /* Viền mặc định */
+  --border-hover: #a1a1aa;        /* Viền khi rê chuột (hover) */
+  --border-active: #09090b;       /* Viền khi nhấp chọn (focus/active) */
+
+  --accent-primary: #09090b;      /* Màu nút chính */
+  --accent-contrast: #ffffff;     /* Màu chữ trên nút chính */
+  --accent-blue: #2563eb;         /* Màu điểm nhấn, liên kết */
+  --shadow-box: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); /* Đổ bóng nhẹ */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  /* Dark mode */
+  --bg-page: #09090b;             /* Màu nền toàn trang */
+  --bg-card: #121215;             /* Màu nền card, form */
+  --bg-subtle: #18181b;           /* Màu nền phụ, thanh bên */
+  --bg-input: #18181b;            /* Màu nền ô nhập liệu */
+
+  --text-primary: #f4f4f5;        /* Màu chữ chính, tiêu đề */
+  --text-secondary: #a1a1aa;      /* Màu chữ phụ, mô tả */
+  --text-muted: #71717a;          /* Màu placeholder, chữ mờ */
+
+  --border-color: #3f3f46;        /* Viền mặc định (sáng rõ trên nền tối) */
+  --border-hover: #71717a;        /* Viền khi rê chuột (hover) */
+  --border-active: #ffffff;       /* Viền khi nhấp chọn (focus/active) trắng sáng */
+
+  --accent-primary: #f4f4f5;      /* Màu nút chính */
+  --accent-contrast: #09090b;     /* Màu chữ trên nút chính */
+  --accent-blue: #60a5fa;         /* Màu điểm nhấn, liên kết */
+  --shadow-box: 0 1px 3px 0 rgba(0, 0, 0, 0.4); /* Đổ bóng tối */
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Đăng ký các token vào hệ thống class utility của Tailwind CSS v4 */
+@theme {
+  --color-page: var(--bg-page);
+  --color-card: var(--bg-card);
+  --color-subtle: var(--bg-subtle);
+  --color-input: var(--bg-input);
+
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+
+  --color-line: var(--border-color);
+  --color-line-dark: var(--border-hover);
+  --color-line-focus: var(--border-active);
+
+  --color-accent: var(--accent-primary);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-blue: var(--accent-blue);
+
+  --shadow-box: var(--shadow-box);
+}
+
+* {
+  border-color: var(--border-color);
+}
+
+html {
+  color-scheme: light dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  min-height: 100vh;
+}
+
+/* Tùy chỉnh thanh cuộn */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-page);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

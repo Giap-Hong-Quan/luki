@@ -26,7 +26,7 @@ export const sendOtpService  = async(email)=>{
         email,
         code: otp,
         type: "verify_email",
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 120 * 1000),
     });
     await sendEmailResend({
         to: email,
@@ -83,7 +83,7 @@ export const sendOtpService  = async(email)=>{
                 <tr>
                   <td align="center">
                     <span style="display: inline-block; background-color: #fffbeb; border: 1px solid #fef3c7; color: #b45309; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;">
-                      ⏱️ Mã OTP có hiệu lực trong <strong>5 phút</strong>
+                      ⏱️ Mã OTP có hiệu lực trong <strong>120 giây (2 phút)</strong>
                     </span>
                   </td>
                 </tr>
@@ -182,7 +182,7 @@ export const forgotPasswordService = async (email) => {
         email: email.toLowerCase().trim(),
         code: otp,
         type: "forgot_password",
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 120 * 1000),
     });
 
     await sendEmailResend({
@@ -225,7 +225,7 @@ export const forgotPasswordService = async (email) => {
                 </span>
               </div>
               <p style="margin: 0 0 16px 0; font-size: 13px; color: #b45309; text-align: center; font-weight: 600;">
-                ⏱️ Mã OTP có hiệu lực trong 5 phút.
+                ⏱️ Mã OTP có hiệu lực trong 120 giây (2 phút).
               </p>
               <div style="background-color: #f1f5f9; border-radius: 8px; padding: 14px 16px;">
                 <p style="margin: 0; font-size: 13px; color: #64748b; text-align: center;">
